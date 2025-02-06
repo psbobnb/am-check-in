@@ -1,12 +1,13 @@
-name: Scheduled Check-In Job
+name: check-in-job
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # 每天 00:00 UTC 执行，调整为你需要的时间
   workflow_dispatch:  # 允许手动触发
+  schedule:
+      # 表达式生成  https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+    - cron: '0 0,6,12,18,22 * * *'  # 每天 00:00 UTC 执行，调整为你需要的时间
 
 jobs:
-  checkin:
+  fetch:
     runs-on: ubuntu-latest
     
     steps:
@@ -27,8 +28,7 @@ jobs:
       run: |
         node _worker.js  
       env:
-        JC_TYPE: ${{ secrets.JC_TYPE }} 
-        DOMAIN: ${{ secrets.DOMAIN }}  
+        DOMAIN: ${{ secrets.DOMAIN }}  # 从 GitHub Secrets 中读取配置信息
         USERNAME: ${{ secrets.USERNAME }}
         PASSWORD: ${{ secrets.PASSWORD }}
         TG_TOKEN: ${{ secrets.TG_TOKEN }}
