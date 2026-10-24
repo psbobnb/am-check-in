@@ -1,0 +1,42 @@
+name: Sync upstream (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Merge amclubs main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/amclubs/am-check-in.git
+          git fetch upstream main
+          if ! git merge --no-commit --no-ff upstream/main; then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            if [ "$conflicts" = "_worker.js.zip" ]; then
+              git checkout --theirs -- _worker.js.zip
+              git add _worker.js.zip
+            else
+              echo "Conflicts require manual review"
+              git diff --name-only --diff-filter=U
+              exit 1
+            fi
+          fi
+          if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+            git commit -m "Sync upstream amclubs/am-check-in"
+          fi
+          git merge-base --is-ancestor upstream/main HEAD
+          git push origin HEAD:main
+          echo "### Upstream synced successfully" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source commit: $(git rev-parse upstream/main)" >> "$GITHUB_STEP_SUMMARY"
