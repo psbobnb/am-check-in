@@ -82,6 +82,12 @@ export default {
     },
 };
 
+function decodeBase64Utf8(b64) {
+    const binary = atob(b64);
+    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+    return new TextDecoder("utf-8").decode(bytes);
+}
+
 async function handleCheckIn() {
     try {
         validateConfig();
@@ -199,8 +205,29 @@ async function hongxingdlCheckIn() {
     return `🎉 ${jcType}签到结果 🎉\n${jsonResponse.data?.mag ?? "签到完成"}${str}`;
 }
 
+
+const jcButtons = {
+    "69yun69": [
+        [
+            {
+                text: decodeBase64Utf8('44CQNjnkupHjgJHkuK3ovazpq5jpgJ/mnLrlnLos5YWo5rWB5aqS5L2T6Kej6ZSBLDEwLjg55YWDNDAwRw=='),
+                url: decodeBase64Utf8('aHR0cHM6Ly82OXl1bjY5LmNvbS9hdXRoL3JlZ2lzdGVyP2NvZGU9eWY4Z1Br')
+            }
+        ]
+    ],
+    "hongxingdl": [
+        [
+            {
+                text: decodeBase64Utf8('44CQOOaKmOegge+8mkFN56eR5oqA44CRW+e6ouadj+S6kV3kuK3ovazpq5jpgJ/mnLrlnLos6Kej6ZSB5YWo5rWB54Wk5L2T5ZKMR1BU'),
+                url: decodeBase64Utf8('aHR0cHM6Ly9ob25neGluZ3l1bjMudmlwL3dlYi8jL2xvZ2luP2NvZGU9bW41VHVpcGY=')
+            }
+        ]
+    ]
+};
+
+
 async function sendMessage(msg) {
-    if (!botToken || !chatId) {  
+    if (!botToken || !chatId) {
         console.log("Telegram 推送未启用. 消息内容:", msg);
         return;
     }
@@ -210,22 +237,40 @@ async function sendMessage(msg) {
         .toISOString()
         .slice(0, 19)
         .replace("T", " ");
-    
-    const message = `执行时间: ${formattedTime}\n${msg}`;
-    const tgUrl = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&parse_mode=HTML&text=${encodeURIComponent(message)}`;
+
+    const messageText = `执行时间: ${formattedTime}\n${msg}`;
+
+    const inline_keyboard = jcButtons[jcType] || [];
+    const payload = {
+        chat_id: chatId,
+        text: messageText,
+        parse_mode: "HTML",
+        reply_markup: {
+            inline_keyboard
+        }
+    };
 
     try {
-        const response = await fetch(tgUrl, { method: "GET", headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" } });
-        
-        if (!response.ok) {
-             return "Telegram 消息发送失败: "  + await response.text(); 
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            console.error("Telegram 消息发送失败:", data);
+            return `Telegram 消息发送失败: ${data.description || '未知错误'}`;
         }
-        const jsonResponse = await response.text(); 
-        console.log("Telegram 消息发送成功:", jsonResponse);
-        return message;
+
+        console.log("Telegram 消息发送成功:", data);
+        return messageText;
     } catch (error) {
         console.error("发送 Telegram 消息失败:", error);
-        return `发送 Telegram 消息失败: ${error.message}`; 
+        return `发送 Telegram 消息失败: ${error.message}`;
     }
 }
 
